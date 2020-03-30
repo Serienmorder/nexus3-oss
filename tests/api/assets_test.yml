@@ -1,0 +1,10 @@
+- name: Get all items from RHEL repository
+  nexus_assets_api:
+    url: http://192.168.11.128:8081
+    endpoint_version: 'v1'
+    url_username: 'admin'
+    url_password: 'Potato1234'
+    headers: 
+      accept: "application/json"
+    force_basic_auth: yes
+    repository_name: 'RHEL7'
