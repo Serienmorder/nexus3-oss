@@ -11,7 +11,7 @@ class Blobstore:
         if 'soft_quota_enabled' in kwargs:
             self.soft_quota_enabled = kwargs['soft_quota_enabled']
         else:
-            self.soft_quota_enabled = None
+            self.soft_quota_enabled = 'Maintain'
         if 'soft_quota_type' in kwargs:
             self.soft_quota_type = kwargs['soft_quota_type']
         else:
@@ -28,7 +28,7 @@ class Blobstore:
 
     @property
     def set_name(self, value):
-        return self._name
+        self._name = value
 
     @property
     def get_path(self):
@@ -36,7 +36,7 @@ class Blobstore:
 
     @property
     def set_path(self, value):
-        return self._path
+        self._path = value
 
     @property
     def get_soft_quota_enabled(self):
@@ -44,7 +44,7 @@ class Blobstore:
 
     @property
     def set_soft_quota_enabled(self, value):
-        return self._soft_quota_enabled
+        self._soft_quota_enabled = value
 
     @property
     def get_soft_quota_type(self):
@@ -65,22 +65,24 @@ class Blobstore:
 
     @property
     def set_soft_quota_limit(self, value):
-        if value < 1:
+        if value < 0:
             value = 1
         self._soft_quota_limit = value * 1000 * 1000
 
-    def is_valid(self):
+    def is_quota_valid(self):
         if self.soft_quota_enabled == 'Enabled':
             if self.soft_quota_type is None or self.soft_quota_limit is None:
                 return False, 'Quota is Enabled, Type and Limit must be defined'
             else:
                 return True, 'no failure'
+        else:
+            return True, 'no data to enforce'
 
     def build_json(self):
         data = {}
         data['path'] = self.path
         data['name'] = self.name
-        if soft_quota_enabled == 'Enabled':
+        if self.soft_quota_enabled == 'Enabled':
             quota = {}
             quota['type'] = self.soft_quota_type
             quota['limit'] = self.soft_quota_limit
