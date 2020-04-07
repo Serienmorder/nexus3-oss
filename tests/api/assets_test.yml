@@ -1,3 +1,4 @@
+#TODO: Add steps that test items actually existing?
 - name: Get all items from RHEL repository
   nexus_assets_api:
     url: http://192.168.11.128:8081
