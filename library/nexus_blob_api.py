@@ -115,130 +115,135 @@ author:
 extends_documentation_fragment: files
 '''
 EXAMPLES = r'''
-- name: Check that you can connect (GET) to a page and it returns a status 200
-  uri:
-    url: http://www.example.com
-
-- name: Check that a page returns a status 200 and fail if the word AWESOME is not in the page contents
-  uri:
-    url: http://www.example.com
-    return_content: yes
-  register: this
-  failed_when: "'AWESOME' not in this.content"
-
-- name: Create a JIRA issue
-  uri:
-    url: https://your.jira.example.com/rest/api/2/issue/
-    user: your_username
-    password: your_pass
-    method: POST
-    body: "{{ lookup('file','issue.json') }}"
-    force_basic_auth: yes
-    status_code: 201
-    body_format: json
-
-- name: Login to a form based webpage, then use the returned cookie to access the app in later tasks
-  uri:
-    url: https://your.form.based.auth.example.com/index.php
-    method: POST
-    body_format: form-urlencoded
-    body:
-      name: your_username
-      password: your_password
-      enter: Sign in
-    status_code: 302
-  register: login
-
-- name: Login to a form based webpage using a list of tuples
-  uri:
-    url: https://your.form.based.auth.example.com/index.php
-    method: POST
-    body_format: form-urlencoded
-    body:
-    - [ name, your_username ]
-    - [ password, your_password ]
-    - [ enter, Sign in ]
-    status_code: 302
-  register: login
-
-- name: Connect to website using a previously stored cookie
-  uri:
-    url: https://your.form.based.auth.example.com/dashboard.php
-    method: GET
-    return_content: yes
-    headers:
-      Cookie: "{{ login.cookies_string }}"
-
-- name: Queue build of a project in Jenkins
-  uri:
-    url: http://{{ jenkins.host }}/job/{{ jenkins.job }}/build?token={{ jenkins.token }}
-    user: "{{ jenkins.user }}"
-    password: "{{ jenkins.password }}"
-    method: GET
-    force_basic_auth: yes
-    status_code: 201
-
-- name: POST from contents of local file
-  uri:
-    url: https://httpbin.org/post
-    method: POST
-    src: file.json
-
-- name: POST from contents of remote file
-  uri:
-    url: https://httpbin.org/post
-    method: POST
-    src: /path/to/my/file.json
-    remote_src: yes
-
-- name: Pause play until a URL is reachable from this host
-  uri:
-    url: "http://192.0.2.1/some/test"
-    follow_redirects: none
-    method: GET
-  register: _result
-  until: _result.status == 200
-  retries: 720 # 720 * 5 seconds = 1hour (60*60/5)
-  delay: 5 # Every 5 seconds
-
-# There are issues in a supporting Python library that is discussed in
-# https://github.com/ansible/ansible/issues/52705 where a proxy is defined
-# but you want to bypass proxy use on CIDR masks by using no_proxy
-- name: Work around a python issue that doesn't support no_proxy envvar
-  uri:
-    follow_redirects: none
-    validate_certs: false
-    timeout: 5
-    url: "http://{{ ip_address }}:{{ port | default(80) }}"
-  register: uri_data
-  failed_when: false
-  changed_when: false
-  vars:
-    ip_address: 192.0.2.1
-  environment: |
-      {
-        {% for no_proxy in (lookup('env', 'no_proxy') | regex_replace('\s*,\s*', ' ') ).split() %}
-          {% if no_proxy | regex_search('\/') and
-                no_proxy | ipaddr('net') != '' and
-                no_proxy | ipaddr('net') != false and
-                ip_address | ipaddr(no_proxy) is not none and
-                ip_address | ipaddr(no_proxy) != false %}
-            'no_proxy': '{{ ip_address }}'
-          {% elif no_proxy | regex_search(':') != '' and
-                  no_proxy | regex_search(':') != false and
-                  no_proxy == ip_address + ':' + (port | default(80)) %}
-            'no_proxy': '{{ ip_address }}:{{ port | default(80) }}'
-          {% elif no_proxy | ipaddr('host') != '' and
-                  no_proxy | ipaddr('host') != false and
-                  no_proxy == ip_address %}
-            'no_proxy': '{{ ip_address }}'
-          {% elif no_proxy | regex_search('^(\*|)\.') != '' and
-                  no_proxy | regex_search('^(\*|)\.') != false and
-                  no_proxy | regex_replace('\*', '') in ip_address %}
-            'no_proxy': '{{ ip_address }}'
-          {% endif %}
-        {% endfor %}
-      }
+- name: Get All Blobstores
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      endpoint_version: 'beta'
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+      force_basic_auth: yes
+      method: GET       
+  - name: Get single Blobstore
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      endpoint_version: 'beta'
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+      force_basic_auth: yes
+      method: GET
+      blob_info: 
+        name: 'company-artifacts'
+  - name: Get Blobstore Quota status
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+      force_basic_auth: yes
+      method: GET
+      blob_info:
+        path: 'company-artifacts'
+  - name: Test Post Creation of Blob
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      endpoint_version: 'beta'
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+        Content-Type: "application/json"
+      force_basic_auth: yes
+      method: POST
+      blob_info:
+        name: 'qwerasdf'
+        path: 'ewrtth546'
+  - name: Test Post Creation of Blob with SoftQuota
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      endpoint_version: 'beta'
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+        Content-Type: "application/json"
+      force_basic_auth: yes
+      validate_certs: false
+      method: POST
+      blob_info:
+        name: 'YeetYeet'
+        path: 'End-Of-The-World'
+        soft_quota_enabled: 'Enabled'
+        soft_quota_type: 'Space-Remaining'
+        soft_quota_limit: 64
+  - name: Change soft Quota type.  
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      endpoint_version: 'beta'
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+        Content-Type: "application/json"
+      force_basic_auth: yes
+      validate_certs: false
+      method: PUT
+      blob_info:
+        name: 'YeetYeet'
+        path: 'End-Of-The-World'
+        soft_quota_enabled: 'Enabled'
+        soft_quota_type: 'Space-Used'
+        soft_quota_limit: 68
+  - name: Disable Soft Quota  
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      endpoint_version: 'beta'
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+        Content-Type: "application/json"
+      force_basic_auth: yes
+      validate_certs: false
+      method: PUT
+      blob_info:
+        name: 'YeetYeet'
+        path: 'End-Of-The-World'
+        soft_quota_enabled: 'Disabled'
+  - name: Delete BlobStore
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      endpoint_version: 'beta'
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+        Content-Type: "application/json"
+      force_basic_auth: yes
+      validate_certs: false
+      method: DELETE
+      blob_info:
+        name: 'YeetYeet'
+  - name: Check Maintain works on null soft quota
+    nexus_blob_api:
+      url: http://192.168.11.128:8081
+      endpoint_version: 'beta'
+      url_username: 'your_username'
+      url_password: 'your_password'
+      headers: 
+        accept: "application/json"
+        Content-Type: "application/json"
+      force_basic_auth: yes
+      validate_certs: false
+      method: PUT
+      blob_info:
+        name: 'company-artifacts'
+        path: 'company-artifacts'
+        soft_quota_enabled: 'Maintain'
 '''
 
 RETURN = r'''
