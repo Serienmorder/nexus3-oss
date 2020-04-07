@@ -56,9 +56,15 @@ options:
             type: str
             required: no
         softQuotaEnabled:
-            description: Disable/Enabled Softquota, if True, quota type and quota limit must be used.
-            type: bool
+            description: Manages Softquota, see notes next to choices to see when to use an option
+            type: str
             required: no 
+            default: Maintain
+            choices:
+                - Enabled - Enforces softquota to be Enabled, with the associated passed types. Changes values if
+                    changed from what they were previously set to
+                - Disabled - Disables any softquota if set
+                - Maintain - Doesn't change softquota settings. Checks what is there, passes it back.
         softQuotaType:
             description: Type of nexus quota to be enforced. 
             type: 'str'
@@ -394,25 +400,11 @@ def build_url(baseurl, endpoint, blobstore, blob_id, method):
             return baseurl + '/service/rest/' + endpoint + '/blobstores/file/' + blobstore
     if method == 'POST':
         return baseurl + '/service/rest/' + endpoint + '/blobstores/file/'
+    if method == 'PUT':
+        return baseurl + '/service/rest/' + endpoint + '/blobstores/file/' + blobstore
+    if method == 'DELETE':
+        return baseurl + '/service/rest/' + endpoint + '/blobstores/' + blobstore
 
-
-'''def parse_blob_info(module_info):
-    if module_info['soft_quota_enabled'] == 'Enabled':
-        if module_info['soft_quota_type'] is None or module_info['soft_quota_limit'] is None:
-            return True, 'Quota is Enabled, Type and Limit must be defined', module_info['name'], module_info['path'], \
-                   None, None, None
-        else:
-            if module_info['soft_quota_type'] == 'Space-Remaining':
-                return False, 'no failure', module_info['name'], module_info['path'], \
-                       module_info['soft_quota_enabled'], 'spaceRemainingQuota', module_info['soft_quota_limit']
-            if module_info['soft_quota_type'] == 'Space-Used':
-                return False, 'no failure', module_info['name'], module_info['path'], \
-                       module_info['soft_quota_enabled'], 'spaceUsedQuota', module_info['soft_quota_limit']
-    if module_info['soft_quota_enabled'] == 'Disabled' or module_info['soft_quota_enabled'] == 'Maintain':
-        return False, 'no failure', module_info['name'], module_info['path'], module_info['soft_quota_enabled'], None,\
-               None
-#    if softQuotaType is not None:
-    return False, 'no failure', module_info['name'], module_info['path'], None, None, None'''
 
 def main():
     argument_spec = nexus_get_argument_spec()
@@ -430,7 +422,7 @@ def main():
             path=dict(type='str', default=None),
             soft_quota_enabled=dict(type='str', default='Maintain', choices=['Enabled', 'Disabled', 'Maintain']),
             soft_quota_type=dict(type='str', choices=['Space-Remaining', 'Space-Used']),
-            soft_quota_limit=dict(type='int')
+            soft_quota_limit=dict(type='int', default=0)
         ))
     )
 
@@ -454,20 +446,41 @@ def main():
         blob = Blobstore()
     else:
         blob = Blobstore(**module.params['blob_info'])
-
-    dict_headers = module.params['headers']
-
-    url = build_url(base_url, endpoint, blob.name, blob.path, method)
-    body = None
-    if method == 'POST':
         quota_failure, quota_msg = blob.is_quota_valid()
         if not quota_failure:
             uresp['msg'] = quota_msg
             module.fail_json(**uresp)
+    dict_headers = module.params['headers']
+
+
+    body = None
+    if method == 'POST' or method == 'PUT':
         if blob.name is None or blob.path is None:
-            uresp['msg'] = 'Name AND Path must be defined for Post'
+            uresp['msg'] = 'Name AND Path must be defined for Post and Put'
             module.fail_json(**uresp)
+        url = build_url(base_url, endpoint, None, None, 'GET')
+        resp, content = uri(module, url, body, body_format, 'GET',
+                            dict_headers, socket_timeout)
+        u_content = to_text(content, encoding='utf-8')
+        js = json.loads(u_content)
+        for x in js:
+            if x['name'] == blob.name:
+                if method == 'POST':
+                    uresp['msg'] = 'Repo already exists'
+                    uresp['changed'] = False
+                    module.exit_json(**uresp)
+                if method == 'PUT' and blob.soft_quota_enabled == 'Maintain':
+                    if x['softQuota'] == 'null' or x['softQuota'] is None:
+                        continue
+                    else:
+                        y = x['softQuota']
+                        blob.soft_quota_enabled = 'Enabled'
+                        blob.soft_quota_type = y['type']
+                        blob.soft_quota_limit = y['limit']
+
         body = blob.build_json()
+
+    url = build_url(base_url, endpoint, blob.name, blob.path, method)
     if body_format == 'json':
         # Encode the body unless its a string, then assume it is pre-formatted JSON
         if not isinstance(body, string_types):
@@ -534,10 +547,14 @@ def main():
     else:
         u_content = to_text(content, encoding=content_encoding)
     # Don't Hard fail if unable to locate item.
-    if method == "POST" and resp['status'] == 404:
-        uresp['msg'] = method
+    if method == "DELETE" and resp['status'] == 404:
+        uresp['msg'] = 'Blobstore does not exist'
         uresp['changed'] = False
         module.exit_json(**uresp)
+    if method == "DELETE" and resp['status'] == 500:
+        uresp['msg'] = 'Blobstore contains data and cannot be deleted'
+        uresp['changed'] = False
+        module.fail_json(**uresp)
     if resp['status'] not in status_code:
         uresp['msg'] = 'Status code was %s and not %s: %s' % (resp['status'], status_code, uresp.get('msg', ''))
         module.fail_json(content=u_content, **uresp)

@@ -19,59 +19,64 @@ class Blobstore:
         if 'soft_quota_limit' in kwargs:
             self.soft_quota_limit = kwargs['soft_quota_limit']
         else:
-            self.soft_quota_limit = None
+            self.soft_quota_limit = 0
 
 
     @property
-    def get_name(self):
-        return self._name
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, value):
+        self.__name = value
 
     @property
-    def set_name(self, value):
-        self._name = value
+    def path(self):
+        return self.__path
+
+    @path.setter
+    def path(self, value):
+        self.__path = value
 
     @property
-    def get_path(self):
-        return self._path
+    def soft_quota_enabled(self):
+        return self.__soft_quota_enabled
+
+    @soft_quota_enabled.setter
+    def soft_quota_enabled(self, value):
+        self.__soft_quota_enabled = value
 
     @property
-    def set_path(self, value):
-        self._path = value
+    def soft_quota_type(self):
+        return self.__soft_quota_type
 
-    @property
-    def get_soft_quota_enabled(self):
-        return self._soft_quota_enabled
-
-    @property
-    def set_soft_quota_enabled(self, value):
-        self._soft_quota_enabled = value
-
-    @property
-    def get_soft_quota_type(self):
-        return self._soft_quota_type
-
-    @property
-    def set_soft_quota_type(self, value):
+    @soft_quota_type.setter
+    def soft_quota_type(self, value):
         if value == 'Space-Remaining' or value == 'spaceRemainingQuota':
-            self._soft_quota_type = 'spaceRemainingQuota'
+            self.__soft_quota_type = 'spaceRemainingQuota'
         elif value == 'Space-Used' or value == 'spaceUsedQuota':
-            self._soft_quota_type = 'spaceUsedQuota'
+            self.__soft_quota_type = 'spaceUsedQuota'
         else:
-            self._soft_quota_type = None
+            self.__soft_quota_type = None
 
     @property
-    def get_soft_quota_limit(self):
-        return self._soft_quota_limit
+    def soft_quota_limit(self):
+        return self.__soft_quota_limit
 
-    @property
-    def set_soft_quota_limit(self, value):
+    @soft_quota_limit.setter
+    def soft_quota_limit(self, value):
+        if value is None:
+            self.__soft_quota_limit = 0
         if value < 0:
             value = 1
-        self._soft_quota_limit = value * 1000 * 1000
+        if value > 0 and self.soft_quota_enabled != 'Maintain':
+            self.__soft_quota_limit = value * 1000 * 1000
+        if value > 0 and self.soft_quota_enabled == 'Maintain':
+            self.__soft_quota_limit = value
 
     def is_quota_valid(self):
         if self.soft_quota_enabled == 'Enabled':
-            if self.soft_quota_type is None or self.soft_quota_limit is None:
+            if self.soft_quota_type is None or self.soft_quota_limit == 0:
                 return False, 'Quota is Enabled, Type and Limit must be defined'
             else:
                 return True, 'no failure'
