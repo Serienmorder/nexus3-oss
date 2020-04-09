@@ -1,0 +1,27 @@
+#TODO: Implement other tests that rely on uploading things
+- name: Test Get failure
+  nexus_component_api:
+    url: http://192.168.11.128:8081
+    endpoint_version: 'v1'
+    url_username: 'admin'
+    url_password: 'Potato1234'
+    headers: 
+      accept: "application/json"
+    force_basic_auth: yes
+    validate_certs: false
+    method: GET
+  register: output
+  failed_when: output.msg != 'Name or ID must be defined for GET'
+- name: Get Component by repo
+  nexus_component_api:
+    url: http://192.168.11.128:8081
+    endpoint_version: 'v1'
+    url_username: 'admin'
+    url_password: 'Potato1234'
+    headers: 
+      accept: "application/json"
+    force_basic_auth: yes
+    validate_certs: false
+    method: GET
+    component_info:
+      repository: 'RHEL7'
