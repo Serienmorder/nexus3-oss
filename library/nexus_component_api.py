@@ -139,6 +139,8 @@ from ansible.module_utils.six.moves.urllib.parse import urlencode, urlsplit
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.common._collections_compat import Mapping, Sequence
 from ansible.module_utils.urls import fetch_url, url_argument_spec
+from ansible.module_utils.nexus.asset import Asset
+from ansible.module_utils.nexus.component import Component
 
 JSON_CANDIDATES = ('text', 'json', 'javascript')
 
@@ -238,12 +240,9 @@ def build_url(baseurl, endpoint, repository, component_id, method):
             return baseurl + '/service/rest/' + endpoint + '/components/' + component_id
         if repository is not None:
             return baseurl + '/service/rest/' + endpoint + '/components?repository=' + repository
-    if method == 'POST':
-        return baseurl + '/service/rest/' + endpoint + '/blobstores/file/'
-    if method == 'PUT':
-        return baseurl + '/service/rest/' + endpoint + '/blobstores/file/' + blobstore
     if method == 'DELETE':
-        return baseurl + '/service/rest/' + endpoint + '/blobstores/' + blobstore
+        if component_id is not None:
+            return baseurl + '/service/rest/' + endpoint + '/components/' + component_id
 
 
 def main():
@@ -251,12 +250,25 @@ def main():
     argument_spec.update(
         url_username=dict(type='str', aliases=['user']),
         url_password=dict(type='str', aliases=['password'], no_log=True),
-        method=dict(type='str', default='GET', choices=['GET', 'DELETE', 'POST']),
+        method=dict(type='str', default='GET', choices=['GET', 'DELETE']),
         return_content=dict(type='bool', default=False),
         status_code=dict(type='list', default=[200, 204]),
         timeout=dict(type='int', default=30),
+        src=dict(type='path'),
         headers=dict(type='dict', default={}),
-        endpoint_version=dict(type='str', default='v1')
+        endpoint_version=dict(type='str', default='v1'),
+        component_info=dict(type='dict', options=dict(
+            id=dict(type='str', default= None),
+            repository=dict(type='str', default=None),
+            format=dict(type='str', default=None),
+            group=dict(type='str', default=None),
+            name=dict(type='str', default=None),
+            version=dict(type='str', default=None),
+            assets=dict(type='dict', options=dict(
+                path=dict(type='str', default=None),
+                repository=dict(type='str', default=None)
+            ))
+        ))
     )
 
     module = AnsibleModule(
@@ -275,46 +287,79 @@ def main():
     uresp = {}
 
 
-    #if module.params['blob_info'] is None:
-    #    blob = Blobstore()
-    #else:
-    #    blob = Blobstore(**module.params['blob_info'])
-    #    quota_failure, quota_msg = blob.is_quota_valid()
-    #    if not quota_failure:
-    #        uresp['msg'] = quota_msg
-    #        module.fail_json(**uresp)
+    if module.params['component_info'] is None:
+        component = Component()
+    else:
+        component = Component(**module.params['component_info'])
     dict_headers = module.params['headers']
-    #repository = 'RHEL7'
-    component_id = 'UkhFTDc6OTNiOWI5ZWI5YTdlY2IwNjU2OTJlZTkzYmQzN2NiMTY'
-    #component_id = None
     body = None
-    #if method == 'POST' or method == 'PUT':
-    #    if blob.name is None or blob.path is None:
-    #        uresp['msg'] = 'Name AND Path must be defined for Post and Put'
-    #        module.fail_json(**uresp)
-    #    url = build_url(base_url, endpoint, None, None, 'GET')
-    #    resp, content = uri(module, url, body, body_format, 'GET',
-    #                        dict_headers, socket_timeout)
-    #    u_content = to_text(content, encoding='utf-8')
-    #    js = json.loads(u_content)
-    #    for x in js:
-    #        if x['name'] == blob.name:
-    #            if method == 'POST':
-    #                uresp['msg'] = 'Repo already exists'
-    #                uresp['changed'] = False
-    #                module.exit_json(**uresp)
-    #            if method == 'PUT' and blob.soft_quota_enabled == 'Maintain':
-    #                if x['softQuota'] == 'null' or x['softQuota'] is None:
-    #                    continue
-    #                else:
-    #                    y = x['softQuota']
-    #                    blob.soft_quota_enabled = 'Enabled'
-    #                    blob.soft_quota_type = y['type']
-    #                    blob.soft_quota_limit = y['limit']
-    #
-    #    body = blob.build_json()
+    # TODO: Implement Post
+    if method == 'GET':
+        url = build_url(base_url, endpoint, component.repository, component.id, method)
+        if component.repository is not None and component.name is not None:
+            resp, content = uri(module, url, body, body_format, 'GET',
+                dict_headers, socket_timeout)
+            u_content = to_text(content, encoding='utf-8')
+            js = json.loads(u_content)
+            for x in js['items']:
+              if x['name'] == component.name:
+                  uresp['component'] = x
+                  uresp['msg'] = 'Located item'
+                  uresp['changed'] = False
+                  module.exit_json(**uresp)
+            uresp['msg'] = 'Unable to locate named component'
+            module.fail_json(**uresp)
+        elif component.repository is None and component.id is None:
+            uresp['msg'] = 'Name or ID must be defined for GET'
+            module.fail_json(**uresp)
+    if method == 'DELETE':
+        if component.id is not None:
+            url = build_url(base_url, endpoint, component.repository, component.id, method)
+        if component.id is None and component.name is not None and component.repository is not None:
+            url = build_url(base_url, endpoint, component.repository, component.id, 'GET')
+            resp, content = uri(module, url, body, body_format, 'GET',
+                                dict_headers, socket_timeout)
+            u_content = to_text(content, encoding='utf-8')
+            js = json.loads(u_content)
+            found_objects = []
+            for x in js['items']:
+                if x['name'] == component.name:
+                    found_objects.append(x)
+            if len(found_objects) == 0:
+                uresp['msg'] = 'No Items found'
+                uresp['changed'] = False
+                module.exit_json(**uresp)
+            if component.version is None:
+                counter = 0
+                total_resp = []
+                total_content = []
+                for y in found_objects:
+                    url = build_url(base_url, endpoint, y['repository'], y['id'], method)
+                    resp, content = uri(module, url, body, body_format, method,
+                                        dict_headers, socket_timeout)
+                    total_resp.append(resp)
+                    total_content.append(content)
+                for z in total_resp['status']:
+                    if 204 == int(z):
+                        counter += 1
+                        continue
+                if counter == len(total_resp):
+                    uresp['msg'] = 'Deleted ' + counter + ' components'
+                    uresp['changed'] = True
+                    module.exit_json(**uresp)
+            if component.version is not None:
+                for z in found_objects:
+                    if z['version'] == component.version:
+                        url = build_url(base_url, endpoint, z['repository'], z['id'], method)
+                        resp, content = uri(module, url, body, body_format, method,
+                                            dict_headers, socket_timeout)
+                        uresp['msg'] = 'Component deleted'
+                        uresp['changed'] = True
+                        module.exit_json(**uresp)
+                uresp['msg'] = 'Unable to locate component'
+                uresp['changed'] = False
+                module.exit_json(**uresp)
 
-    url = build_url(base_url, endpoint, repository, component_id, method)
     if body_format == 'json':
         # Encode the body unless its a string, then assume it is pre-formatted JSON
         if not isinstance(body, string_types):
@@ -382,13 +427,9 @@ def main():
         u_content = to_text(content, encoding=content_encoding)
     # Don't Hard fail if unable to locate item.
     if method == "DELETE" and resp['status'] == 404:
-        uresp['msg'] = 'Blobstore does not exist'
+        uresp['msg'] = 'Component does not exist'
         uresp['changed'] = False
         module.exit_json(**uresp)
-    if method == "DELETE" and resp['status'] == 500:
-        uresp['msg'] = 'Blobstore contains data and cannot be deleted'
-        uresp['changed'] = False
-        module.fail_json(**uresp)
     if resp['status'] not in status_code:
         uresp['msg'] = 'Status code was %s and not %s: %s' % (resp['status'], status_code, uresp.get('msg', ''))
         module.fail_json(content=u_content, **uresp)

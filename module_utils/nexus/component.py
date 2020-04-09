@@ -21,13 +21,15 @@ class Component:
         else:
             self.name = None
         if 'version' in kwargs:
-            self.path = kwargs['version']
+            self.version = kwargs['version']
         else:
-            self.path = None
-        if 'assets' in kwargs:
-            self.assets = {}
-            for x in kwargs['assets']:
-                self.assets.update(x)
+            self.version = None
+        #if 'assets' in kwargs:
+        #    self.assets = {}
+        #    for x in kwargs['assets']:
+        #        self.assets.update(x)
+        #else:
+        #    self.assets = None
 
     @property
     def id(self):
@@ -76,3 +78,7 @@ class Component:
     @version.setter
     def version(self, value):
         self.__version = value
+
+    def to_dict(self):
+        dict = {}
+

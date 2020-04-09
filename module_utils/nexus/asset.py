@@ -5,7 +5,7 @@ class Asset:
         self.id = kwargs['id']
         self.repository = kwargs['repository']
         self.format = kwargs['yum']
-        checksum = {}
+        self.checksum = {}
         for x in kwargs['checksum']:
             checksum.update(x)
 
@@ -48,4 +48,3 @@ class Asset:
     @format.setter
     def format(self, value):
         self.__format = value
-
