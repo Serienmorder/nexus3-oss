@@ -1,2 +1,4 @@
 - import_tasks: ../tests/api/assets_test.yml
 - import_tasks: ../tests/api/blobstores_test.yml
+- import_tasks: ../tests/api/components_test.yml
+- import_tasks: ../tests/api/email_test.yml

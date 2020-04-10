@@ -1,0 +1,61 @@
+- name: Get current email info
+  nexus_email_api:
+    url: http://192.168.11.128:8081
+    endpoint_version: 'beta'
+    url_username: 'admin'
+    url_password: 'Potato1234'
+    headers: 
+      accept: "application/json"
+    force_basic_auth: yes
+    validate_certs: false
+    method: GET
+- name: Update Email info
+  nexus_email_api:
+    url: http://192.168.11.128:8081
+    endpoint_version: 'beta'
+    url_username: 'admin'
+    url_password: 'Potato1234'
+    headers: 
+      accept: "application/json"
+    force_basic_auth: yes
+    validate_certs: false
+    method: PUT
+    email_info:
+      enabled: True
+      host: 'potato'
+      port: 587
+      from_address: 'potato@mailinator.com'
+      subject_prefix: 'Nexus Sonatype: '
+      start_tls_enabled: True
+      start_tls_required: True
+      ssl_on_connect_enabled: True
+      ssl_server_identity_check_enabled: True
+      nexus_trust_store_enabled: True
+      username: 'admin'
+      password: 'potato'
+- name: Test email
+  nexus_email_api:
+    url: http://192.168.11.128:8081
+    endpoint_version: 'beta'
+    url_username: 'admin'
+    url_password: 'Potato1234'
+    headers: 
+      accept: "application/json"
+    force_basic_auth: yes
+    validate_certs: false
+    method: POST
+    email_info:
+      verify_address: "potato@mailinator.com"
+  register: output
+  failed_when: output.msg != 'verify email failed'
+- name: Delete Email info
+  nexus_email_api:
+    url: http://192.168.11.128:8081
+    endpoint_version: 'beta'
+    url_username: 'admin'
+    url_password: 'Potato1234'
+    headers: 
+      accept: "application/json"
+    force_basic_auth: yes
+    validate_certs: false
+    method: DELETE
