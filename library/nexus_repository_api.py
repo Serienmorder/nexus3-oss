@@ -233,7 +233,6 @@ def nexus_get_argument_spec():
     )
 
 
-    ### If asset ID is passed, we don't care about the repository.
 def build_url(baseurl, endpoint, name, method):
     if method == 'GET':
         #TODO Add functionality to get info about only one repo?
@@ -255,8 +254,10 @@ def main():
         headers=dict(type='dict', default={}),
         endpoint_version=dict(type='str', default='v1'),
         repository_info=dict(type='dict', options=dict(
-            name=dict('str', default=None),
-            format=dict('str', default=None)
+            name=dict(type='str', default=None),
+            format=dict(type='str', default=None),
+            health_check=dict(type='bool', default=False),
+            rebuild_index=dict(type='bool', default=False)
         ))
     )
 
