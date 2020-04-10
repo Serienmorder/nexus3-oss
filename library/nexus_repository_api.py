@@ -139,8 +139,8 @@ from ansible.module_utils.six.moves.urllib.parse import urlencode, urlsplit
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.common._collections_compat import Mapping, Sequence
 from ansible.module_utils.urls import fetch_url, url_argument_spec
-from ansible.module_utils.nexus.asset import Asset
-from ansible.module_utils.nexus.component import Component
+from ansible.module_utils.nexus.repository import Repository
+
 
 JSON_CANDIDATES = ('text', 'json', 'javascript')
 
@@ -234,12 +234,12 @@ def nexus_get_argument_spec():
 
 
     ### If asset ID is passed, we don't care about the repository.
-def build_url(baseurl, endpoint, method):
+def build_url(baseurl, endpoint, name, method):
     if method == 'GET':
+        #TODO Add functionality to get info about only one repo?
         return baseurl + '/service/rest/' + endpoint + '/repositories'
     if method == 'DELETE':
-        if component_id is not None:
-            return baseurl + '/service/rest/' + endpoint + '/components/' + component_id
+        return baseurl + '/service/rest/' + endpoint + '/repositories/' + name
 
 
 def main():
@@ -253,7 +253,11 @@ def main():
         timeout=dict(type='int', default=30),
         src=dict(type='path'),
         headers=dict(type='dict', default={}),
-        endpoint_version=dict(type='str', default='v1')
+        endpoint_version=dict(type='str', default='v1'),
+        repository_info=dict(type='dict', options=dict(
+            name=dict('str', default=None),
+            format=dict('str', default=None)
+        ))
     )
 
     module = AnsibleModule(
@@ -273,8 +277,11 @@ def main():
 
     dict_headers = module.params['headers']
     body = None
-
-    url = build_url(base_url, endpoint, method)
+    if module.params['repository_info'] is None:
+        repository = Repository()
+    else:
+        repository = Repository(**module.params['repository_info'])
+    url = build_url(base_url, endpoint, repository.name, method)
 
     if body_format == 'json':
         # Encode the body unless its a string, then assume it is pre-formatted JSON
