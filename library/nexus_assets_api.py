@@ -15,7 +15,7 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 
 DOCUMENTATION = r'''
 ---
-module: nexus_get_asset
+module: nexus_assets_api
 short_description: Interacts with Nexus Rest API
 description:
   - Extends the URI module in order to interact with the Nexus Rest API.
