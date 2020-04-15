@@ -161,6 +161,7 @@ class Email:
     def verify_address(self, value):
         self.__verify_address = value
 
+    # the bool vars have to be lower case strings.
     def to_dict(self):
         dict = {}
         if self.enabled:
