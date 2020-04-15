@@ -1,0 +1,11 @@
+- name: Get All scripts
+  nexus_script_api:
+    url: http://192.168.11.128:8081
+    endpoint_version: 'v1'
+    url_username: 'admin'
+    url_password: 'Potato1234'
+    headers: 
+      accept: "application/json"
+    force_basic_auth: yes
+    validate_certs: false
+    method: GET
