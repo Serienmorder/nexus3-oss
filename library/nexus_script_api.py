@@ -136,7 +136,7 @@ import tempfile
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.six import PY2, iteritems, string_types
 from ansible.module_utils.six.moves.urllib.parse import urlencode, urlsplit
-from ansible.module_utils._text import to_native, to_text
+from ansible.module_utils._text import to_native, to_text, to_bytes
 from ansible.module_utils.common._collections_compat import Mapping, Sequence
 from ansible.module_utils.urls import fetch_url, url_argument_spec
 from ansible.module_utils.nexus.script import Script
@@ -238,17 +238,20 @@ def build_url(baseurl, endpoint, name, method):
         return baseurl + '/service/rest/' + endpoint + '/script/' + name
     if method == 'GET':
         return baseurl + '/service/rest/' + endpoint + '/script'
+    if method == 'POST':
+        return baseurl + '/service/rest/' + endpoint + '/script'
+    if method == 'PUT':
+        return baseurl + '/service/rest/' + endpoint + '/script/' + name
 
 def main():
     argument_spec = nexus_get_argument_spec()
     argument_spec.update(
         url_username=dict(type='str', aliases=['user']),
         url_password=dict(type='str', aliases=['password'], no_log=True),
-        method=dict(type='str', default='GET', choices=['GET', 'DELETE']),
+        method=dict(type='str', default='GET', choices=['GET', 'DELETE', 'POST']),
         return_content=dict(type='bool', default=False),
         status_code=dict(type='list', default=[200, 204]),
         timeout=dict(type='int', default=30),
-        src=dict(type='path'),
         headers=dict(type='dict', default={}),
         endpoint_version=dict(type='str', default='v1'),
         script_info=dict(type='dict', options=dict(
@@ -272,40 +275,61 @@ def main():
     return_content = module.params['return_content']
     status_code = [int(x) for x in list(module.params['status_code'])]
     socket_timeout = 30
-    uresp = {}
 
     dict_headers = module.params['headers']
     body = None
-    #if module.params['src'] is not None:
-        #module.params['script_info'] = module.params['src']
-        #module.params['src'].remove('src')
+
     if module.params['script_info'] is None:
         script = Script()
     else:
         script = Script(**module.params['script_info'])
 
     url = build_url(base_url, endpoint, script.name, method)
+    if not script.is_valid() and method != 'GET':
+        uresp['msg'] = 'Not a Valid script object'
+        module.fail_json(**uresp)
+    if method == 'POST' and script.is_valid():
+        body = to_bytes(json.dumps(script.to_dict()))
+        resp, content = uri(module, url, body, body_format, method,
+                            dict_headers, socket_timeout)
+        uresp, u_content = resp_cont_parsing(resp, content)
+        if "found duplicated key" in u_content:
+            method = 'PUT'
+            url = build_url(base_url, endpoint, script.name, method)
+    if method == 'PUT' and script.is_valid():
+        body = to_bytes(json.dumps(script.to_dict()))
+        resp, content = uri(module, url, body, body_format, method,
+                            dict_headers, socket_timeout)
 
-    if body_format == 'json':
-        # Encode the body unless its a string, then assume it is pre-formatted JSON
-        if not isinstance(body, string_types):
-            body = json.dumps(body)
-        if 'content-type' not in [header.lower() for header in dict_headers]:
-            dict_headers['Content-Type'] = 'application/json'
 
     # Make the request
     start = datetime.datetime.utcnow()
-    resp, content = uri(module, url, body, body_format, method,
-                        dict_headers, socket_timeout)
+    #resp, content = uri(module, url, body, body_format, method,
+    #                    dict_headers, socket_timeout)
     resp['elapsed'] = (datetime.datetime.utcnow() - start).seconds
     resp['status'] = int(resp['status'])
     resp['changed'] = False
 
+    uresp, u_content = resp_cont_parsing(resp, content)
+    # Don't Hard fail if unable to locate item.
+    if method == "DELETE" and resp['status'] == 404:
+        uresp['msg'] = 'Component does not exist'
+        uresp['changed'] = False
+        module.exit_json(**uresp)
+    if resp['status'] not in status_code:
+        uresp['msg'] = 'Status code was %s and not %s: %s' % (resp['status'], status_code, uresp.get('msg', ''))
+        module.fail_json(content=u_content, **uresp)
+    elif return_content:
+        module.exit_json(content=u_content, **uresp)
+    else:
+        module.exit_json(**uresp)
+
+def resp_cont_parsing(resp, content):
     # Transmogrify the headers, replacing '-' with '_', since variables don't
     # work with dashes.
     # In python3, the headers are title cased.  Lowercase them to be
     # compatible with the python2 behaviour.
-
+    uresp = {}
     for key, value in iteritems(resp):
         ukey = key.replace("-", "_").lower()
         uresp[ukey] = value
@@ -351,18 +375,8 @@ def main():
                     sys.exc_clear()  # Avoid false positive traceback in fail_json() on Python 2
     else:
         u_content = to_text(content, encoding=content_encoding)
-    # Don't Hard fail if unable to locate item.
-    if method == "DELETE" and resp['status'] == 404:
-        uresp['msg'] = 'Component does not exist'
-        uresp['changed'] = False
-        module.exit_json(**uresp)
-    if resp['status'] not in status_code:
-        uresp['msg'] = 'Status code was %s and not %s: %s' % (resp['status'], status_code, uresp.get('msg', ''))
-        module.fail_json(content=u_content, **uresp)
-    elif return_content:
-        module.exit_json(content=u_content, **uresp)
-    else:
-        module.exit_json(**uresp)
+
+    return uresp, u_content
 
 
 if __name__ == '__main__':

@@ -35,14 +35,6 @@ class Script:
         self.__content = value
 
     @property
-    def path_to_content(self):
-        return self.__path_to_content
-
-    @path_to_content.setter
-    def path_to_content(self, value):
-        self.__path_to_content = value
-
-    @property
     def content_type(self):
         return self.__content_type
 
@@ -50,17 +42,15 @@ class Script:
     def content_type(self, value):
         self.__content_type = value
 
+    def is_valid(self):
+        return self.name is not None and self.content is not None and self.content_type is not None
+
     def to_dict(self):
         dict = {}
         if self.name is not None:
             dict['name'] = self.name
         if self.content is not None:
             dict['content'] = self.content
-        if self.content is None and self.path_to_content is not None:
-            try:
-                dict['content'] = open(self.path_to_content, 'rb')
-            except FileNotFoundError:
-                raise Exception('Could not locate or open file= ' + self.path_to_content)
         if self.content_type is not None:
             dict['type'] = self.content_type
         return dict
