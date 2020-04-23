@@ -242,6 +242,8 @@ def build_url(baseurl, endpoint, name, method):
         return baseurl + '/service/rest/' + endpoint + '/script'
     if method == 'PUT':
         return baseurl + '/service/rest/' + endpoint + '/script/' + name
+    if method == 'DELETE':
+        return baseurl + '/service/rest/' + endpoint + '/script/' + name
 
 def main():
     argument_spec = nexus_get_argument_spec()
@@ -285,7 +287,11 @@ def main():
         script = Script(**module.params['script_info'])
 
     url = build_url(base_url, endpoint, script.name, method)
-    if not script.is_valid() and method != 'GET':
+    start = datetime.datetime.utcnow()
+    if method == 'GET':
+        resp, content = uri(module, url, body, body_format, method,
+                            dict_headers, socket_timeout)
+    if not script.is_valid() and method != 'GET' and method != 'DELETE':
         uresp['msg'] = 'Not a Valid script object'
         module.fail_json(**uresp)
     if method == 'POST' and script.is_valid():
@@ -300,10 +306,14 @@ def main():
         body = to_bytes(json.dumps(script.to_dict()))
         resp, content = uri(module, url, body, body_format, method,
                             dict_headers, socket_timeout)
-
-
+    if method == 'DELETE' and script.name != None:
+        resp, content = uri(module, url, body, body_format, method,
+                            dict_headers, socket_timeout)
+    elif method == 'DELETE' and script.name == None:
+        uresp['msg'] = 'Script name is required for DELETE'
+        module.exit_json(**uresp)
     # Make the request
-    start = datetime.datetime.utcnow()
+
     #resp, content = uri(module, url, body, body_format, method,
     #                    dict_headers, socket_timeout)
     resp['elapsed'] = (datetime.datetime.utcnow() - start).seconds
