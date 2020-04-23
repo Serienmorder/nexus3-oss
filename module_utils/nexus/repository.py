@@ -47,7 +47,7 @@ class Repository:
         return self.__rebuild_index
 
     @rebuild_index.setter
-    def rebuild_index(self):
+    def rebuild_index(self, value):
         self.__rebuild_index = value
 
     @property

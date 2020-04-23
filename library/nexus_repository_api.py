@@ -351,7 +351,7 @@ def main():
         u_content = to_text(content, encoding=content_encoding)
     # Don't Hard fail if unable to locate item.
     if method == "DELETE" and resp['status'] == 404:
-        uresp['msg'] = 'Component does not exist'
+        uresp['msg'] = 'Repository does not exist'
         uresp['changed'] = False
         module.exit_json(**uresp)
     if resp['status'] not in status_code:
