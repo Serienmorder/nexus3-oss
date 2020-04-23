@@ -73,6 +73,22 @@ options:
       - If C(no), it will not use a proxy, even if one is defined in an environment variable on the target hosts.
     type: bool
     default: yes
+  script_info:
+    description:
+     - object for interacting with the scripting API.
+    suboptions:
+        name:
+            description: name of the script. Don't include extension. Required when script_info object is provided.
+            required: True
+            type: str
+        content:
+            description: Point at file you want to upload. Or just provide a string
+            required: False
+            type: str
+        content_type:
+            description: Type of script
+            required: False
+            type: str
 notes:
 #  - The dependency on httplib2 was removed in Ansible 2.1.
   - The module returns all the HTTP headers in lower-case.
@@ -81,7 +97,80 @@ author:
 extends_documentation_fragment: files
 '''
 EXAMPLES = r'''
-
+- name: Get create task scripts
+      nexus_script_api:
+        url: http://10.10.3.144:8081
+        endpoint_version: 'v1'
+        url_username: 'admin'
+        url_password: 'Potato1234'
+        headers: 
+          accept: "application/json"
+        force_basic_auth: yes
+        validate_certs: false
+        method: GET
+        script_info:
+          name: create_task
+    - name: Get create task scripts
+      nexus_script_api:
+        url: http://10.10.3.144:8081
+        endpoint_version: 'v1'
+        url_username: 'admin'
+        url_password: 'Potato1234'
+        headers: 
+          accept: "application/json"
+        force_basic_auth: yes
+        validate_certs: false
+        method: GET
+        script_info:
+          name: create_blobstores_from_list  
+    - name: Post a script
+      nexus_script_api:
+        url: http://10.10.3.144:8081
+        endpoint_version: 'v1'
+        url_username: 'admin'
+        url_password: 'Potato1234'
+        headers: 
+          accept: "application/json"
+          Content-Type: "application/json"
+        force_basic_auth: yes
+        validate_certs: false
+        method: POST
+        script_info:
+          name: create_blobstores_from_list
+          content: "{{ lookup('file', 'files/groovy/create_blobstores_from_list.groovy') }}"
+          content_type: 'groovy'
+    - name: Put a script without it previously existing
+      nexus_script_api:
+        url: http://10.10.3.144:8081
+        endpoint_version: 'v1'
+        url_username: 'admin'
+        url_password: 'Potato1234'
+        headers: 
+          accept: "application/json"
+          Content-Type: "application/json"
+        force_basic_auth: yes
+        validate_certs: false
+        method: POST
+        script_info:
+          name: a_thing_that_I_do
+          content: "{{ lookup('file', 'files/groovy/create_blobstores_from_list.groovy') }}"
+          content_type: 'groovy'
+    - name: Delete a script
+      nexus_script_api:
+        url: http://10.10.3.144:8081
+        endpoint_version: 'v1'
+        url_username: 'admin'
+        url_password: 'Potato1234'
+        headers: 
+          accept: "application/json"
+          Content-Type: "application/json"
+        force_basic_auth: yes
+        validate_certs: false
+        method: DELETE
+        script_info:
+          name: a_thing_that_I_do
+          content: "{{ lookup('file', 'files/groovy/create_blobstores_from_list.groovy') }}"
+          content_type: 'groovy'
 '''
 
 RETURN = r'''
@@ -257,7 +346,7 @@ def main():
         headers=dict(type='dict', default={}),
         endpoint_version=dict(type='str', default='v1'),
         script_info=dict(type='dict', options=dict(
-            name=dict(type='str', default=None),
+            name=dict(type='str', default=None, required=True),
             content=dict(type='str', default=None),
             content_type=dict(type='str', default=None)
         ))
